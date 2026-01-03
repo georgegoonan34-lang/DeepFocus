@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DeepFocus</string>
+
+    <string name="accessibility_service_description">DeepFocus uses accessibility to block distracting apps and monitor browser URLs for YouTube Shorts. This service runs in the background to keep you focused.</string>
+
+    <string name="device_admin_description">DeepFocus requires device admin to prevent accidental uninstallation. You can only disable this from your computer.</string>
+
+    <string name="blocked_message">This app is blocked.\n\nStay focused.</string>
+    <string name="shorts_blocked_message">YouTube Shorts is blocked.\n\nGo do something meaningful.</string>
+
+    <string name="go_back">Go Back</string>
+    <string name="setup_title">Setup Required</string>
+    <string name="setup_complete">All permissions granted. DeepFocus is active.</string>
+</resources>
