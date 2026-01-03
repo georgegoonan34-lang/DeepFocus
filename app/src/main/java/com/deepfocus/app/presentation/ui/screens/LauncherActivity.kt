@@ -19,10 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
+import com.deepfocus.app.service.blocking.ScreenTimeService
 import com.deepfocus.app.util.BlockedApps
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
@@ -34,6 +38,9 @@ class LauncherActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Start screen time service
+        startService(Intent(this, ScreenTimeService::class.java))
 
         setContent {
             DeepFocusTheme {
@@ -56,8 +63,10 @@ data class AppInfo(
 @Composable
 fun MinimalLauncher() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var currentTime by remember { mutableStateOf(getCurrentTime()) }
     var currentDate by remember { mutableStateOf(getCurrentDate()) }
+    var apps by remember { mutableStateOf(getInstalledApps(context)) }
 
     // Update time every second
     LaunchedEffect(Unit) {
@@ -68,7 +77,18 @@ fun MinimalLauncher() {
         }
     }
 
-    val apps = remember { getInstalledApps(context) }
+    // Refresh app list when returning to launcher
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                apps = getInstalledApps(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Column(
         modifier = Modifier

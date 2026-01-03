@@ -51,6 +51,10 @@ object BlockedApps {
         "com.pinterest",                            // Pinterest
         "com.tumblr",                               // Tumblr
         "tv.twitch.android.app",                   // Twitch
+
+        // Streaming - Time sinks
+        "com.netflix.mediaclient",                 // Netflix
+        "com.netflix.ninja",                       // Netflix (alternate)
     )
 
     /**

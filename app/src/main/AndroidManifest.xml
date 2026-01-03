@@ -90,6 +90,11 @@
                 android:value="App blocking and focus management" />
         </service>
 
+        <!-- Screen Time Tracking Service -->
+        <service
+            android:name=".service.blocking.ScreenTimeService"
+            android:exported="false" />
+
         <!-- Device Admin Receiver for uninstall protection -->
         <receiver
             android:name=".service.device_admin.DeepFocusDeviceAdmin"
