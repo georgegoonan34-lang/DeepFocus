@@ -51,7 +51,6 @@ object BlockedApps {
         "com.pinterest",                            // Pinterest
         "com.tumblr",                               // Tumblr
         "tv.twitch.android.app",                   // Twitch
-        "com.discord",                              // Discord (optional - remove if you need it)
     )
 
     /**
