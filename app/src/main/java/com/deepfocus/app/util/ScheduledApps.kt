@@ -37,18 +37,13 @@ object ScheduledApps {
     }
 
     /** Package name → list of windows when the app is allowed. */
-    val SCHEDULED_PACKAGES: Map<String, List<TimeWindow>> = mapOf(
-        "com.google.android.youtube" to listOf(TimeWindow(18 * 60, 21 * 60)),
-    )
+    val SCHEDULED_PACKAGES: Map<String, List<TimeWindow>> = emptyMap()
 
     /**
      * URL host substrings → list of windows. Match is by `contains`, so
      * "youtube.com" matches m.youtube.com, www.youtube.com, etc.
      */
-    val SCHEDULED_URL_PATTERNS: Map<String, List<TimeWindow>> = mapOf(
-        "youtube.com" to listOf(TimeWindow(18 * 60, 21 * 60)),
-        "youtu.be" to listOf(TimeWindow(18 * 60, 21 * 60)),
-    )
+    val SCHEDULED_URL_PATTERNS: Map<String, List<TimeWindow>> = emptyMap()
 
     fun isPackageScheduled(pkg: String): Boolean = pkg in SCHEDULED_PACKAGES
 

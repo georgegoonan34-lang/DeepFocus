@@ -35,8 +35,9 @@ object BlockedApps {
         "com.facebook.lite",                        // Facebook Lite
         "com.linkedin.android",                     // LinkedIn
 
-        // YouTube is on a schedule (see ScheduledApps.kt) — not always blocked.
-        "com.google.android.apps.youtube.music",   // YouTube Music (still always blocked)
+        // YouTube App - Use browser instead (Shorts can't be blocked in-app easily)
+        "com.google.android.youtube",              // YouTube
+        "com.google.android.apps.youtube.music",   // YouTube Music
 
         // Games - Time sinks
         "com.supercell.clashroyale",               // Clash Royale
@@ -60,10 +61,8 @@ object BlockedApps {
      * If the browser URL contains any of these, show block screen.
      */
     val BLOCKED_URL_PATTERNS = setOf(
-        "youtube.com/shorts",
-        "youtu.be/shorts",
-        "m.youtube.com/shorts",
-        "/shorts/",
+        "youtube.com",
+        "youtu.be",
         "instagram.com",
         "tiktok.com",
         "twitter.com",
