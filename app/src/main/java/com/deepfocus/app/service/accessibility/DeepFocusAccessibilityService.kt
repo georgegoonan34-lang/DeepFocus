@@ -196,14 +196,25 @@ class DeepFocusAccessibilityService : AccessibilityService() {
         // when "instagram.com" appeared in an autofill suggestion list, or
         // when a YouTube channel page mentioned "Shorts" anywhere on screen.
         // If we can't find the URL bar by ID, we just don't block.
+        //
+        // When the URL bar is focused, modern browsers do inline autocomplete:
+        // typing "i" puts "instagram.com" into the bar with the completion
+        // pre-selected. Reading focused text would block sites the user
+        // never actually loaded. Only read the URL bar when it's unfocused —
+        // that's when its text is the page that actually loaded.
         for (urlBarId in urlBarIds) {
             try {
                 val nodes = node.findAccessibilityNodeInfosByViewId(urlBarId)
-                if (!nodes.isNullOrEmpty()) {
-                    val text = nodes[0].text?.toString()
-                    if (!text.isNullOrEmpty() && text.length > 3) {
-                        return text
-                    }
+                if (nodes.isNullOrEmpty()) continue
+                val urlNode = nodes[0]
+                if (urlNode.isFocused) {
+                    // User is editing — abort. Don't try other IDs either:
+                    // they'd point to the same edit-mode field.
+                    return null
+                }
+                val text = urlNode.text?.toString()
+                if (!text.isNullOrEmpty() && text.length > 3) {
+                    return text
                 }
             } catch (e: Exception) {
                 // Continue trying other IDs
