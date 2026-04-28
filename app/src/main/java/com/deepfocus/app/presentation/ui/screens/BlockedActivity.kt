@@ -39,18 +39,30 @@ class BlockedActivity : ComponentActivity() {
             DeepFocusTheme {
                 BlockedScreen(
                     blockedType = blockedType,
-                    onGoBack = { goHome() }
+                    onDismiss = { dismiss(blockedType) },
                 )
             }
         }
     }
 
     override fun onBackPressed() {
+        val blockedType = intent.getStringExtra(EXTRA_BLOCKED_TYPE) ?: TYPE_APP
+        dismiss(blockedType)
+    }
+
+    private fun dismiss(blockedType: String) {
+        // For browser blocks the accessibility service already pressed Back
+        // in the browser before launching us, so the browser is sitting at
+        // the previous page. Just finish — the user is returned there. No
+        // reason to slam them out to the home screen for a single misclick.
+        if (blockedType == TYPE_URL || blockedType == TYPE_SHORTS) {
+            finish()
+            return
+        }
         goHome()
     }
 
     private fun goHome() {
-        // Go back to home screen
         val homeIntent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
             addCategory(android.content.Intent.CATEGORY_HOME)
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
@@ -63,8 +75,13 @@ class BlockedActivity : ComponentActivity() {
 @Composable
 fun BlockedScreen(
     blockedType: String,
-    onGoBack: () -> Unit
+    onDismiss: () -> Unit,
 ) {
+    val dismissLabel = when (blockedType) {
+        BlockedActivity.TYPE_URL, BlockedActivity.TYPE_SHORTS -> "Go Back"
+        else -> "Go Home"
+    }
+
     val message = when (blockedType) {
         BlockedActivity.TYPE_SHORTS -> "YouTube Shorts\nis blocked."
         BlockedActivity.TYPE_URL -> "This site\nis blocked."
@@ -111,9 +128,9 @@ fun BlockedScreen(
 
         Spacer(modifier = Modifier.height(64.dp))
 
-        TextButton(onClick = onGoBack) {
+        TextButton(onClick = onDismiss) {
             Text(
-                text = "Go Home",
+                text = dismissLabel,
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 14.sp
             )

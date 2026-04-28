@@ -191,7 +191,11 @@ class DeepFocusAccessibilityService : AccessibilityService() {
             )
         }
 
-        // Try specific IDs first
+        // Read the URL bar by view ID only — never fall back to scanning page
+        // text. Page-text matching caused false positives like blocking
+        // when "instagram.com" appeared in an autofill suggestion list, or
+        // when a YouTube channel page mentioned "Shorts" anywhere on screen.
+        // If we can't find the URL bar by ID, we just don't block.
         for (urlBarId in urlBarIds) {
             try {
                 val nodes = node.findAccessibilityNodeInfosByViewId(urlBarId)
@@ -206,53 +210,7 @@ class DeepFocusAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Fallback: Search all nodes for URL-like content
-        return findUrlInChildren(node, 0)
-    }
-
-    private fun findUrlInChildren(node: AccessibilityNodeInfo, depth: Int): String? {
-        if (depth > 15) return null // Prevent deep recursion
-
-        try {
-            val text = node.text?.toString()
-            if (text != null && isLikelyUrl(text) && text.length > 5) {
-                return text
-            }
-
-            // Also check content description
-            val contentDesc = node.contentDescription?.toString()
-            if (contentDesc != null && isLikelyUrl(contentDesc) && contentDesc.length > 5) {
-                return contentDesc
-            }
-
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                val result = findUrlInChildren(child, depth + 1)
-                child.recycle()
-                if (result != null) {
-                    return result
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore exceptions during traversal
-        }
-
         return null
-    }
-
-    private fun isLikelyUrl(text: String): Boolean {
-        val lower = text.lowercase()
-        // Check if it looks like a URL and contains blocked domains
-        return (lower.contains(".com") || lower.contains(".org") || lower.contains("http")) &&
-                (lower.contains("youtube.com") ||
-                lower.contains("youtu.be") ||
-                lower.contains("reddit.com") ||
-                lower.contains("instagram.com") ||
-                lower.contains("tiktok.com") ||
-                lower.contains("twitter.com") ||
-                lower.contains("x.com") ||
-                lower.contains("facebook.com") ||
-                lower.contains("shorts"))
     }
 
     private fun blockApp(packageName: String, blockType: String) {

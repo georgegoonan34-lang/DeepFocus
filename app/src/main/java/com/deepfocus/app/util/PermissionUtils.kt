@@ -1,9 +1,15 @@
 package com.deepfocus.app.util
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import android.os.Process
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
+import com.deepfocus.app.service.device_admin.DeepFocusDeviceAdmin
 
 /**
  * PACKAGE_USAGE_STATS is a "special" permission — declaring it in the
@@ -29,4 +35,22 @@ fun hasUsageStatsPermission(context: Context): Boolean {
         )
     }
     return mode == AppOpsManager.MODE_ALLOWED
+}
+
+fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+    return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
+        .any { it.resolveInfo.serviceInfo.packageName == context.packageName }
+}
+
+fun isDeviceAdminEnabled(context: Context): Boolean {
+    val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    return dpm.isAdminActive(ComponentName(context, DeepFocusDeviceAdmin::class.java))
+}
+
+fun isFullySetUp(context: Context): Boolean {
+    return isAccessibilityServiceEnabled(context) &&
+            isDeviceAdminEnabled(context) &&
+            Settings.canDrawOverlays(context) &&
+            hasUsageStatsPermission(context)
 }
