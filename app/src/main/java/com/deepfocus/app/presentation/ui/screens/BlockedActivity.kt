@@ -23,6 +23,7 @@ class BlockedActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_BLOCKED_TYPE = "blocked_type"
+        const val EXTRA_SCHEDULE_LABEL = "schedule_label"
         const val TYPE_APP = "app"
         const val TYPE_SHORTS = "shorts"
         const val TYPE_URL = "url"
@@ -34,11 +35,13 @@ class BlockedActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val blockedType = intent.getStringExtra(EXTRA_BLOCKED_TYPE) ?: TYPE_APP
+        val scheduleLabel = intent.getStringExtra(EXTRA_SCHEDULE_LABEL)
 
         setContent {
             DeepFocusTheme {
                 BlockedScreen(
                     blockedType = blockedType,
+                    scheduleLabel = scheduleLabel,
                     onDismiss = { dismiss(blockedType) },
                 )
             }
@@ -75,6 +78,7 @@ class BlockedActivity : ComponentActivity() {
 @Composable
 fun BlockedScreen(
     blockedType: String,
+    scheduleLabel: String? = null,
     onDismiss: () -> Unit,
 ) {
     val dismissLabel = when (blockedType) {
@@ -82,17 +86,21 @@ fun BlockedScreen(
         else -> "Go Home"
     }
 
-    val message = when (blockedType) {
-        BlockedActivity.TYPE_SHORTS -> "YouTube Shorts\nis blocked."
-        BlockedActivity.TYPE_URL -> "This site\nis blocked."
-        BlockedActivity.TYPE_TAMPER -> "Nice try."
+    val message = when {
+        scheduleLabel != null -> "Outside hours."
+        blockedType == BlockedActivity.TYPE_SHORTS -> "YouTube Shorts\nis blocked."
+        blockedType == BlockedActivity.TYPE_URL -> "This site\nis blocked."
+        blockedType == BlockedActivity.TYPE_TAMPER -> "Nice try."
         else -> "This app\nis blocked."
     }
 
-    val submessage = when (blockedType) {
-        BlockedActivity.TYPE_SHORTS -> "Endless scrolling won't make you better.\nGo create something."
-        BlockedActivity.TYPE_URL -> "This site is a distraction.\nFocus on what matters."
-        BlockedActivity.TYPE_TAMPER ->
+    val submessage = when {
+        scheduleLabel != null -> "Allowed $scheduleLabel"
+        blockedType == BlockedActivity.TYPE_SHORTS ->
+            "Endless scrolling won't make you better.\nGo create something."
+        blockedType == BlockedActivity.TYPE_URL ->
+            "This site is a distraction.\nFocus on what matters."
+        blockedType == BlockedActivity.TYPE_TAMPER ->
             "DeepFocus can't be disabled from this phone.\n\n" +
                     "The only way out is ADB from a computer.\n\n" +
                     "You set this up on purpose. Stay focused."

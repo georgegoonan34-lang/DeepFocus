@@ -35,9 +35,8 @@ object BlockedApps {
         "com.facebook.lite",                        // Facebook Lite
         "com.linkedin.android",                     // LinkedIn
 
-        // YouTube App - Use browser instead (Shorts can't be blocked in-app easily)
-        "com.google.android.youtube",              // YouTube
-        "com.google.android.apps.youtube.music",   // YouTube Music
+        // YouTube is on a schedule (see ScheduledApps.kt) — not always blocked.
+        "com.google.android.apps.youtube.music",   // YouTube Music (still always blocked)
 
         // Games - Time sinks
         "com.supercell.clashroyale",               // Clash Royale

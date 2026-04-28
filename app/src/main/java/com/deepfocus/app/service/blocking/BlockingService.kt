@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.deepfocus.app.presentation.ui.screens.BlockedActivity
 import com.deepfocus.app.presentation.ui.screens.LauncherActivity
 import com.deepfocus.app.util.BlockedApps
+import com.deepfocus.app.util.ScheduledApps
 import kotlinx.coroutines.*
 
 /**
@@ -84,18 +85,26 @@ class BlockingService : Service() {
 
             if (BlockedApps.isBlocked(currentApp)) {
                 Log.d(TAG, "Detected blocked app in foreground: $currentApp")
-                blockApp()
+                blockApp(scheduleLabel = null)
+            } else if (ScheduledApps.isPackageScheduled(currentApp) &&
+                !ScheduledApps.isPackageAllowedNow(currentApp)
+            ) {
+                Log.d(TAG, "Detected scheduled app outside window: $currentApp")
+                blockApp(scheduleLabel = ScheduledApps.packageScheduleLabel(currentApp))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking foreground app", e)
         }
     }
 
-    private fun blockApp() {
+    private fun blockApp(scheduleLabel: String?) {
         val intent = Intent(this, BlockedActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(BlockedActivity.EXTRA_BLOCKED_TYPE, BlockedActivity.TYPE_APP)
+            if (scheduleLabel != null) {
+                putExtra(BlockedActivity.EXTRA_SCHEDULE_LABEL, scheduleLabel)
+            }
         }
         startActivity(intent)
     }

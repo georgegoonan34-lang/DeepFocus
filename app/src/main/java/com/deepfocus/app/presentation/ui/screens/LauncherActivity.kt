@@ -30,6 +30,7 @@ import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
 import com.deepfocus.app.service.blocking.BlockingService
 import com.deepfocus.app.service.blocking.ScreenTimeService
 import com.deepfocus.app.util.BlockedApps
+import com.deepfocus.app.util.ScheduledApps
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
 import java.util.*
@@ -70,7 +71,8 @@ class LauncherActivity : ComponentActivity() {
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val isBlocked: Boolean
+    val isBlocked: Boolean,
+    val statusLabel: String? = null,
 )
 
 @Composable
@@ -174,9 +176,9 @@ fun AppRow(
             modifier = Modifier.align(Alignment.CenterStart)
         )
 
-        if (app.isBlocked) {
+        if (app.isBlocked && app.statusLabel != null) {
             Text(
-                text = "blocked",
+                text = app.statusLabel,
                 color = Color.White.copy(alpha = 0.15f),
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.CenterEnd)
@@ -211,12 +213,20 @@ private fun getInstalledApps(context: Context): List<AppInfo> {
             }
 
             val appName = resolveInfo.loadLabel(pm).toString()
-            val isBlocked = BlockedApps.isBlocked(packageName)
+            val alwaysBlocked = BlockedApps.isBlocked(packageName)
+            val scheduledOut = ScheduledApps.isPackageScheduled(packageName) &&
+                    !ScheduledApps.isPackageAllowedNow(packageName)
+            val statusLabel = when {
+                alwaysBlocked -> "blocked"
+                scheduledOut -> ScheduledApps.packageScheduleLabel(packageName)
+                else -> null
+            }
 
             AppInfo(
                 name = appName,
                 packageName = packageName,
-                isBlocked = isBlocked
+                isBlocked = alwaysBlocked || scheduledOut,
+                statusLabel = statusLabel,
             )
         }
         .sortedWith(compareBy(

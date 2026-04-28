@@ -8,6 +8,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.deepfocus.app.presentation.ui.screens.BlockedActivity
 import com.deepfocus.app.util.BlockedApps
+import com.deepfocus.app.util.ScheduledApps
 
 /**
  * Accessibility Service that monitors app launches and browser URLs.
@@ -113,9 +114,21 @@ class DeepFocusAccessibilityService : AccessibilityService() {
     }
 
     private fun handleWindowChange(packageName: String, event: AccessibilityEvent) {
-        // Check if app is blocked
+        // Always-blocked first
         if (BlockedApps.isBlocked(packageName)) {
             blockApp(packageName, BlockedActivity.TYPE_APP)
+            return
+        }
+
+        // Scheduled apps: blocked only outside their allowed window.
+        if (ScheduledApps.isPackageScheduled(packageName) &&
+            !ScheduledApps.isPackageAllowedNow(packageName)
+        ) {
+            blockApp(
+                packageName,
+                BlockedActivity.TYPE_APP,
+                scheduleLabel = ScheduledApps.packageScheduleLabel(packageName),
+            )
             return
         }
 
@@ -128,29 +141,38 @@ class DeepFocusAccessibilityService : AccessibilityService() {
     private fun checkBrowserUrl(event: AccessibilityEvent, packageName: String) {
         try {
             val rootNode = rootInActiveWindow ?: event.source ?: return
-            val url = findUrlInNode(rootNode, packageName)
+            val url = findUrlInNode(rootNode, packageName) ?: return
 
-            if (url != null) {
-                Log.d(TAG, "Found URL: $url in $packageName")
+            Log.d(TAG, "Found URL: $url in $packageName")
 
-                if (BlockedApps.isUrlBlocked(url)) {
-                    // Avoid blocking same URL repeatedly
-                    if (url == lastBlockedUrl && (System.currentTimeMillis() - lastBlockTime) < 3000) {
-                        return
-                    }
-
-                    Log.d(TAG, "BLOCKING URL: $url")
-                    lastBlockedUrl = url
-
-                    val blockType = if (url.contains("shorts", ignoreCase = true)) {
+            // Decide whether and why to block this URL.
+            val blockType: String
+            val scheduleLabel: String?
+            when {
+                BlockedApps.isUrlBlocked(url) -> {
+                    blockType = if (url.contains("shorts", ignoreCase = true)) {
                         BlockedActivity.TYPE_SHORTS
                     } else {
                         BlockedActivity.TYPE_URL
                     }
-
-                    blockApp(packageName, blockType)
+                    scheduleLabel = null
                 }
+                !ScheduledApps.isUrlAllowedNow(url) -> {
+                    blockType = BlockedActivity.TYPE_URL
+                    scheduleLabel = ScheduledApps.urlScheduleLabel(url)
+                }
+                else -> return
             }
+
+            // Avoid blocking same URL repeatedly
+            if (url == lastBlockedUrl && (System.currentTimeMillis() - lastBlockTime) < 3000) {
+                return
+            }
+
+            Log.d(TAG, "BLOCKING URL: $url (type=$blockType, schedule=$scheduleLabel)")
+            lastBlockedUrl = url
+
+            blockApp(packageName, blockType, scheduleLabel = scheduleLabel)
         } catch (e: Exception) {
             Log.e(TAG, "Error checking browser URL", e)
         }
@@ -224,7 +246,11 @@ class DeepFocusAccessibilityService : AccessibilityService() {
         return null
     }
 
-    private fun blockApp(packageName: String, blockType: String) {
+    private fun blockApp(
+        packageName: String,
+        blockType: String,
+        scheduleLabel: String? = null,
+    ) {
         val now = System.currentTimeMillis()
 
         // Prevent rapid re-blocking of same app
@@ -235,7 +261,7 @@ class DeepFocusAccessibilityService : AccessibilityService() {
         lastBlockedPackage = packageName
         lastBlockTime = now
 
-        Log.d(TAG, "BLOCKING: $packageName (type: $blockType)")
+        Log.d(TAG, "BLOCKING: $packageName (type: $blockType, schedule: $scheduleLabel)")
 
         // Perform back action first to try to close the page/app
         performGlobalAction(GLOBAL_ACTION_BACK)
@@ -247,6 +273,9 @@ class DeepFocusAccessibilityService : AccessibilityService() {
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
             putExtra(BlockedActivity.EXTRA_BLOCKED_TYPE, blockType)
+            if (scheduleLabel != null) {
+                putExtra(BlockedActivity.EXTRA_SCHEDULE_LABEL, scheduleLabel)
+            }
         }
         startActivity(intent)
     }
