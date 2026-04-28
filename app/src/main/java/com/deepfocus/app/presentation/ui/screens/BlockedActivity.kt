@@ -26,6 +26,7 @@ class BlockedActivity : ComponentActivity() {
         const val TYPE_APP = "app"
         const val TYPE_SHORTS = "shorts"
         const val TYPE_URL = "url"
+        const val TYPE_TAMPER = "tamper"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,12 +68,17 @@ fun BlockedScreen(
     val message = when (blockedType) {
         BlockedActivity.TYPE_SHORTS -> "YouTube Shorts\nis blocked."
         BlockedActivity.TYPE_URL -> "This site\nis blocked."
+        BlockedActivity.TYPE_TAMPER -> "Nice try."
         else -> "This app\nis blocked."
     }
 
     val submessage = when (blockedType) {
         BlockedActivity.TYPE_SHORTS -> "Endless scrolling won't make you better.\nGo create something."
         BlockedActivity.TYPE_URL -> "This site is a distraction.\nFocus on what matters."
+        BlockedActivity.TYPE_TAMPER ->
+            "DeepFocus can't be disabled from this phone.\n\n" +
+                    "The only way out is ADB from a computer.\n\n" +
+                    "You set this up on purpose. Stay focused."
         else -> "You blocked this for a reason.\nStay focused."
     }
 

@@ -136,6 +136,19 @@ class BlockingService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // The user swiped DeepFocus out of recents — don't let the service
+        // die quietly. Reschedule a self-restart through the system.
+        super.onTaskRemoved(rootIntent)
+        Log.w(TAG, "Task removed; restarting BlockingService")
+        val restartIntent = Intent(applicationContext, BlockingService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            applicationContext.startForegroundService(restartIntent)
+        } else {
+            applicationContext.startService(restartIntent)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false

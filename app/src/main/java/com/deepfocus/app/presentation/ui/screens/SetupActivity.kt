@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
 import com.deepfocus.app.service.device_admin.DeepFocusDeviceAdmin
+import com.deepfocus.app.util.hasUsageStatsPermission
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -52,6 +53,7 @@ fun SetupScreen() {
     var accessibilityEnabled by remember { mutableStateOf(isAccessibilityEnabled(context)) }
     var deviceAdminEnabled by remember { mutableStateOf(isDeviceAdminEnabled(context)) }
     var overlayEnabled by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var usageAccessEnabled by remember { mutableStateOf(hasUsageStatsPermission(context)) }
 
     // Refresh permissions when screen is resumed
     LaunchedEffect(Unit) {
@@ -59,11 +61,12 @@ fun SetupScreen() {
             accessibilityEnabled = isAccessibilityEnabled(context)
             deviceAdminEnabled = isDeviceAdminEnabled(context)
             overlayEnabled = Settings.canDrawOverlays(context)
+            usageAccessEnabled = hasUsageStatsPermission(context)
             kotlinx.coroutines.delay(1000)
         }
     }
 
-    val allEnabled = accessibilityEnabled && deviceAdminEnabled && overlayEnabled
+    val allEnabled = accessibilityEnabled && deviceAdminEnabled && overlayEnabled && usageAccessEnabled
 
     Column(
         modifier = Modifier
@@ -133,6 +136,18 @@ fun SetupScreen() {
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:${context.packageName}")
                 )
+                context.startActivity(intent)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PermissionItem(
+            title = "Usage Access",
+            description = "Required for screen time tracking",
+            enabled = usageAccessEnabled,
+            onClick = {
+                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
                 context.startActivity(intent)
             }
         )

@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import android.os.Build
 import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
+import com.deepfocus.app.service.blocking.BlockingService
 import com.deepfocus.app.service.blocking.ScreenTimeService
 import com.deepfocus.app.util.BlockedApps
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,6 +40,17 @@ class LauncherActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // The blocking service was previously only started by BootReceiver, so
+        // a user who installed without rebooting had no foreground-service
+        // backup. Starting from the launcher (a foreground context) is safe
+        // under Android 12+ FGS restrictions.
+        val blockingIntent = Intent(this, BlockingService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(blockingIntent)
+        } else {
+            startService(blockingIntent)
+        }
 
         // Start screen time service
         startService(Intent(this, ScreenTimeService::class.java))

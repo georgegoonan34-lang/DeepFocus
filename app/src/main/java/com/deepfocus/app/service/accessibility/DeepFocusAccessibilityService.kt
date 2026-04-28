@@ -22,12 +22,35 @@ class DeepFocusAccessibilityService : AccessibilityService() {
         private var instance: DeepFocusAccessibilityService? = null
 
         fun getInstance(): DeepFocusAccessibilityService? = instance
+
+        /**
+         * Settings/installer packages whose screens we monitor for tamper
+         * attempts. If any of these show a DeepFocus-related screen we
+         * bounce the user home — by design the only way out is ADB.
+         */
+        private val SETTINGS_PACKAGES = setOf(
+            "com.android.settings",
+            "com.samsung.android.settings",
+            "com.android.permissioncontroller",
+            "com.google.android.permissioncontroller",
+            "com.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.samsung.android.packageinstaller",
+        )
+
+        private const val TAMPER_KICKOUT_COOLDOWN_MS = 1500L
+        private const val SETTINGS_CHECK_THROTTLE_MS = 150L
+        private const val MAX_TRAVERSAL_DEPTH = 14
     }
 
     private var lastBlockedPackage: String? = null
     private var lastBlockedUrl: String? = null
     private var lastBlockTime: Long = 0
     private val blockCooldown = 1000L // Prevent rapid re-blocking
+
+    // Settings Guardian state
+    private var lastTamperKickout: Long = 0
+    private var lastSettingsCheck: Long = 0
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -54,8 +77,24 @@ class DeepFocusAccessibilityService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
 
-        // Skip our own app and system UI
+        // Skip our own app — never kick the user out of our own setup screen.
         if (packageName == applicationContext.packageName) return
+
+        // SETTINGS GUARDIAN: catch any path that could disable DeepFocus
+        // (the accessibility toggle, App Info → Force Stop / Uninstall, the
+        // device admin entry, the package installer's uninstall flow). This
+        // runs before normal blocking because losing the service is the
+        // worst possible outcome.
+        if (packageName in SETTINGS_PACKAGES) {
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            ) {
+                checkSettingsTampering()
+            }
+            return
+        }
+
+        // Skip system UI for normal blocking checks
         if (packageName == "com.android.systemui") return
 
         when (event.eventType) {
@@ -241,6 +280,101 @@ class DeepFocusAccessibilityService : AccessibilityService() {
             putExtra(BlockedActivity.EXTRA_BLOCKED_TYPE, blockType)
         }
         startActivity(intent)
+    }
+
+    // =========================================================================
+    // SETTINGS GUARDIAN
+    // =========================================================================
+    // While the accessibility service is running it polices every Settings /
+    // installer screen. The instant a DeepFocus-related screen appears we
+    // bounce the user home and show the tamper block — they can't reach the
+    // accessibility toggle, App Info, Device Admin entry, or uninstall flow.
+    // Only ADB from a computer can disable us.
+    // =========================================================================
+
+    private fun checkSettingsTampering() {
+        val now = System.currentTimeMillis()
+        if (now - lastSettingsCheck < SETTINGS_CHECK_THROTTLE_MS) return
+        lastSettingsCheck = now
+
+        val rootNode = rootInActiveWindow ?: return
+        if (containsDeepFocusReference(rootNode, 0)) {
+            kickOutOfSettings()
+        }
+    }
+
+    private fun containsDeepFocusReference(node: AccessibilityNodeInfo, depth: Int): Boolean {
+        if (depth > MAX_TRAVERSAL_DEPTH) return false
+
+        try {
+            if (matchesDeepFocus(node.text)) return true
+            if (matchesDeepFocus(node.contentDescription)) return true
+            if (matchesDeepFocus(node.viewIdResourceName)) return true
+
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                try {
+                    if (containsDeepFocusReference(child, depth + 1)) {
+                        return true
+                    }
+                } finally {
+                    child.recycle()
+                }
+            }
+        } catch (e: Exception) {
+            // Traversal failure — fall through. Better to miss a tamper attempt
+            // than to crash and lose the service entirely.
+        }
+
+        return false
+    }
+
+    private fun matchesDeepFocus(value: CharSequence?): Boolean {
+        if (value == null) return false
+        val text = value.toString().lowercase()
+        return text.contains("deepfocus") ||
+                text.contains("deep focus") ||
+                text.contains("com.deepfocus")
+    }
+
+    private fun kickOutOfSettings() {
+        val now = System.currentTimeMillis()
+        if (now - lastTamperKickout < TAMPER_KICKOUT_COOLDOWN_MS) return
+        lastTamperKickout = now
+
+        Log.w(TAG, "TAMPER DETECTED: Settings screen referencing DeepFocus. Kicking out.")
+
+        // Slam back first to dismiss any in-flight confirmation dialog
+        // (e.g. the "Stop DeepFocus from running?" prompt that appears when
+        // the user actually toggles the accessibility switch).
+        performGlobalAction(GLOBAL_ACTION_BACK)
+
+        // Send the user to the home screen — LauncherActivity is our home.
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        try {
+            startActivity(homeIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch home", e)
+        }
+
+        // Layer the tamper block on top so the user understands what just
+        // happened and what the only escape route is.
+        val blockIntent = Intent(this, BlockedActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+            putExtra(BlockedActivity.EXTRA_BLOCKED_TYPE, BlockedActivity.TYPE_TAMPER)
+        }
+        try {
+            startActivity(blockIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch tamper block", e)
+        }
     }
 
     override fun onInterrupt() {
