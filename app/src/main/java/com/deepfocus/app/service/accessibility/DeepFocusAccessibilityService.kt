@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.deepfocus.app.presentation.ui.screens.BlockedActivity
+import com.deepfocus.app.util.BankingApps
 import com.deepfocus.app.util.BlockedApps
 import com.deepfocus.app.util.ScheduledApps
 
@@ -114,6 +115,16 @@ class DeepFocusAccessibilityService : AccessibilityService() {
     }
 
     private fun handleWindowChange(packageName: String, event: AccessibilityEvent) {
+        // Banking apps (HSBC etc.) refuse to launch with accessibility on.
+        // Detecting it here is faster than the BlockingService poll because
+        // we react on the very window-state change. Disabling ourselves
+        // disconnects the service — BlockingService picks up restoration
+        // when the banking app leaves the foreground.
+        if (BankingApps.isBankingApp(packageName)) {
+            AccessibilityToggle.disableOurService(this)
+            return
+        }
+
         // Always-blocked first
         if (BlockedApps.isBlocked(packageName)) {
             blockApp(packageName, BlockedActivity.TYPE_APP)

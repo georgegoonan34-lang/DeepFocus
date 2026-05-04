@@ -23,6 +23,12 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Toggle our own accessibility service when banking apps need it off.
+         Requires ADB grant:
+         adb shell pm grant com.deepfocus.app android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
     <application
         android:name=".DeepFocusApp"
         android:allowBackup="false"

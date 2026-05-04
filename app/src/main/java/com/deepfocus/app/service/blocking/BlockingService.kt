@@ -14,6 +14,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.deepfocus.app.presentation.ui.screens.BlockedActivity
 import com.deepfocus.app.presentation.ui.screens.LauncherActivity
+import com.deepfocus.app.service.accessibility.AccessibilityToggle
+import com.deepfocus.app.util.BankingApps
 import com.deepfocus.app.util.BlockedApps
 import com.deepfocus.app.util.ScheduledApps
 import kotlinx.coroutines.*
@@ -33,6 +35,13 @@ class BlockingService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var isRunning = false
+
+    // Tracks whether the last foreground app we saw was a banking app.
+    // When the user leaves the banking app we use this edge to know we
+    // should restore the accessibility service. We can't rely on "did WE
+    // disable it" because the accessibility service can disable itself
+    // directly on its own window event — both paths converge here.
+    private var lastWasBankingApp = false
 
     override fun onCreate() {
         super.onCreate()
@@ -80,6 +89,13 @@ class BlockingService : Service() {
                 .maxByOrNull { it.lastTimeUsed }
                 ?.packageName ?: return
 
+            // Banking apps (HSBC etc.) refuse to run with accessibility on.
+            // Toggle our service off while banking is in foreground, back on
+            // the moment the user leaves. This runs BEFORE the early-return
+            // for our own package so leaving HSBC straight to our launcher
+            // still re-enables accessibility.
+            handleBankingAppPresence(currentApp)
+
             // Skip our own app
             if (currentApp == packageName) return
 
@@ -94,6 +110,22 @@ class BlockingService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking foreground app", e)
+        }
+    }
+
+    private fun handleBankingAppPresence(currentApp: String) {
+        val isBanking = BankingApps.isBankingApp(currentApp)
+        if (isBanking) {
+            // Make sure accessibility is off while banking is open. Safe to
+            // call even if it's already off — disableOurService no-ops in
+            // that case.
+            AccessibilityToggle.disableOurService(this)
+            lastWasBankingApp = true
+        } else if (lastWasBankingApp) {
+            // User just left the banking app — restore accessibility.
+            // enableOurService no-ops if it's already on.
+            AccessibilityToggle.enableOurService(this)
+            lastWasBankingApp = false
         }
     }
 
