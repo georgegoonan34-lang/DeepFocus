@@ -12,7 +12,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.deepfocus.app.presentation.ui.screens.LauncherActivity
+import com.deepfocus.app.presentation.ui.screens.SetupActivity
 import com.deepfocus.app.util.hasUsageStatsPermission
 import kotlinx.coroutines.*
 import java.util.Calendar
@@ -179,7 +179,7 @@ class ScreenTimeService : Service() {
             else -> "Screen time today: $timeString. Your future self is watching."
         }
 
-        val intent = Intent(this, LauncherActivity::class.java)
+        val intent = Intent(this, SetupActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,

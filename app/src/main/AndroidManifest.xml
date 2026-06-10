@@ -39,21 +39,6 @@
         android:theme="@style/Theme.DeepFocus"
         tools:targetApi="34">
 
-        <!-- Main Launcher Activity - This IS the home screen -->
-        <activity
-            android:name=".presentation.ui.screens.LauncherActivity"
-            android:exported="true"
-            android:launchMode="singleTask"
-            android:stateNotNeeded="true"
-            android:theme="@style/Theme.DeepFocus">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
         <!-- Block Overlay Activity -->
         <activity
             android:name=".presentation.ui.screens.BlockedActivity"
@@ -62,11 +47,18 @@
             android:excludeFromRecents="true"
             android:theme="@style/Theme.DeepFocus.Blocked" />
 
-        <!-- Setup Activity for permissions -->
+        <!-- Setup / status screen. This is now the app's entry point: the
+             DeepFocus icon opens it. The custom minimal launcher was removed,
+             so the phone uses its normal home screen while DeepFocus keeps
+             blocking in the background. -->
         <activity
             android:name=".presentation.ui.screens.SetupActivity"
             android:exported="true"
             android:theme="@style/Theme.DeepFocus">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -27,6 +28,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
+import com.deepfocus.app.service.blocking.BlockingService
+import com.deepfocus.app.service.blocking.ScreenTimeService
 import com.deepfocus.app.service.device_admin.DeepFocusDeviceAdmin
 import com.deepfocus.app.util.hasUsageStatsPermission
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,6 +40,20 @@ class SetupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Start the blocking + screen-time services from this foreground
+        // context. BootReceiver starts them on boot, but a user who installed
+        // without rebooting needs a foreground-context start too. This logic
+        // used to live in the custom launcher's onCreate; it moved here when
+        // that launcher was removed. Starting from a foreground activity is
+        // safe under Android 12+ FGS restrictions.
+        val blockingIntent = Intent(this, BlockingService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(blockingIntent)
+        } else {
+            startService(blockingIntent)
+        }
+        startService(Intent(this, ScreenTimeService::class.java))
 
         setContent {
             DeepFocusTheme {

@@ -13,7 +13,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.deepfocus.app.presentation.ui.screens.BlockedActivity
-import com.deepfocus.app.presentation.ui.screens.LauncherActivity
+import com.deepfocus.app.presentation.ui.screens.SetupActivity
 import com.deepfocus.app.service.accessibility.AccessibilityToggle
 import com.deepfocus.app.util.BankingApps
 import com.deepfocus.app.util.BlockedApps
@@ -156,7 +156,7 @@ class BlockingService : Service() {
     }
 
     private fun createNotification(): Notification {
-        val intent = Intent(this, LauncherActivity::class.java)
+        val intent = Intent(this, SetupActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
