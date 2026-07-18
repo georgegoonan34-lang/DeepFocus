@@ -39,6 +39,20 @@
         android:theme="@style/Theme.DeepFocus"
         tools:targetApi="34">
 
+        <!-- Main Launcher Activity - This IS the home screen -->
+        <activity
+            android:name=".presentation.ui.screens.launcher.LauncherActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.DeepFocus">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Block Overlay Activity -->
         <activity
             android:name=".presentation.ui.screens.BlockedActivity"
@@ -47,10 +61,9 @@
             android:excludeFromRecents="true"
             android:theme="@style/Theme.DeepFocus.Blocked" />
 
-        <!-- Setup / status screen. This is now the app's entry point: the
-             DeepFocus icon opens it. The custom minimal launcher was removed,
-             so the phone uses its normal home screen while DeepFocus keeps
-             blocking in the background. -->
+        <!-- Setup / status screen. The DeepFocus icon opens it. The custom
+             launcher is back (LauncherActivity above is the HOME screen), so
+             this stays a plain setup/status entry point. -->
         <activity
             android:name=".presentation.ui.screens.SetupActivity"
             android:exported="true"
