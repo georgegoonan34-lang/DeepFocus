@@ -33,6 +33,7 @@ object BlockedApps {
         "com.onelouder.baconreader",               // BaconReader
         "com.facebook.katana",                      // Facebook
         "com.facebook.lite",                        // Facebook Lite
+        "com.snapchat.android",                     // Snapchat
         "com.linkedin.android",                     // LinkedIn
 
         // YouTube App - Use browser instead (Shorts can't be blocked in-app easily)
