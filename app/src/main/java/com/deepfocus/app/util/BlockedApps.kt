@@ -36,8 +36,10 @@ object BlockedApps {
         "com.snapchat.android",                     // Snapchat
         "com.linkedin.android",                     // LinkedIn
 
-        // YouTube App - Use browser instead (Shorts can't be blocked in-app easily)
-        "com.google.android.youtube",              // YouTube
+        // YouTube itself is allowed now, app and web. Shorts stays blocked in
+        // browsers via the youtube.com/shorts pattern below; inside the YouTube
+        // app it can't be detected (the service only reads browser URL bars),
+        // which is a known and accepted gap.
         "com.google.android.apps.youtube.music",   // YouTube Music
 
         // Games - Time sinks
@@ -58,8 +60,9 @@ object BlockedApps {
      * If the browser URL contains any of these, show block screen.
      */
     val BLOCKED_URL_PATTERNS = setOf(
-        "youtube.com",
-        "youtu.be",
+        // YouTube is allowed, but Shorts is not. Matching is by `contains`,
+        // so this covers www.youtube.com/shorts and m.youtube.com/shorts too.
+        "youtube.com/shorts",
         "instagram.com",
         "tiktok.com",
         "twitter.com",
