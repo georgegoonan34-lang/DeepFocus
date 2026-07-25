@@ -33,7 +33,6 @@ object BlockedApps {
         "com.onelouder.baconreader",               // BaconReader
         "com.facebook.katana",                      // Facebook
         "com.facebook.lite",                        // Facebook Lite
-        "com.snapchat.android",                     // Snapchat
         "com.linkedin.android",                     // LinkedIn
 
         // YouTube - fully blocked, app and web (see the youtube.com URL
