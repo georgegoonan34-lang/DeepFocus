@@ -18,6 +18,8 @@ object BlockedApps {
      */
     val BLOCKED_PACKAGES = setOf(
         // Social Media - The endless scroll machines
+        "com.instagram.android",                    // Instagram
+        "com.instagram.lite",                       // Instagram Lite
         "com.zhiliaoapp.musically",                // TikTok
         "com.ss.android.ugc.trill",                // TikTok (alternate)
         "com.twitter.android",                      // Twitter/X
@@ -64,6 +66,7 @@ object BlockedApps {
         // www./m. variants and every /shorts URL under them.
         "youtube.com",
         "youtu.be",
+        "instagram.com",
         "tiktok.com",
         "twitter.com",
         "x.com",
