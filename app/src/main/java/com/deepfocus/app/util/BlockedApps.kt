@@ -18,8 +18,6 @@ object BlockedApps {
      */
     val BLOCKED_PACKAGES = setOf(
         // Social Media - The endless scroll machines
-        "com.instagram.android",                    // Instagram
-        "com.instagram.lite",                       // Instagram Lite
         "com.zhiliaoapp.musically",                // TikTok
         "com.ss.android.ugc.trill",                // TikTok (alternate)
         "com.twitter.android",                      // Twitter/X
@@ -31,8 +29,6 @@ object BlockedApps {
         "ml.docilealligator.infinityforreddit",    // Infinity for Reddit
         "com.rubenmayayo.reddit",                  // Boost for Reddit
         "com.onelouder.baconreader",               // BaconReader
-        "com.facebook.katana",                      // Facebook
-        "com.facebook.lite",                        // Facebook Lite
         "com.linkedin.android",                     // LinkedIn
 
         // YouTube - fully blocked, app and web (see the youtube.com URL
@@ -65,12 +61,10 @@ object BlockedApps {
         // www./m. variants and every /shorts URL under them.
         "youtube.com",
         "youtu.be",
-        "instagram.com",
         "tiktok.com",
         "twitter.com",
         "x.com",
         "reddit.com",
-        "facebook.com",
     )
 
     /**
