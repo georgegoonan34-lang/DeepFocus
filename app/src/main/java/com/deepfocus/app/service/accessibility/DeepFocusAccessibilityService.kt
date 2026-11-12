@@ -358,8 +358,8 @@ class DeepFocusAccessibilityService : AccessibilityService() {
         // the user actually toggles the accessibility switch).
         performGlobalAction(GLOBAL_ACTION_BACK)
 
-        // Send the user to the home screen — this resolves to the system
-        // launcher (DeepFocus no longer ships its own home screen).
+        // Send the user to the home screen — whichever launcher is the
+        // default, normally DeepFocus's own LauncherActivity.
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

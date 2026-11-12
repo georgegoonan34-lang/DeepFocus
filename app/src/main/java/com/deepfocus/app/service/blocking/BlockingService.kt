@@ -31,6 +31,7 @@ class BlockingService : Service() {
         private const val CHANNEL_ID = "deepfocus_blocking"
         private const val NOTIFICATION_ID = 1001
         private const val CHECK_INTERVAL_MS = 500L
+        private const val RETIRED_SCREEN_TIME_CHANNEL_ID = "deepfocus_screentime"
     }
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -153,6 +154,11 @@ class BlockingService : Service() {
 
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)
+
+        // The 30-minute screen time reminders are gone (the number lives on
+        // the home screen now). Remove their channel so it stops showing up
+        // in the phone's notification settings after an update.
+        notificationManager.deleteNotificationChannel(RETIRED_SCREEN_TIME_CHANNEL_ID)
     }
 
     private fun createNotification(): Notification {

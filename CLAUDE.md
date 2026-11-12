@@ -345,11 +345,20 @@ Use these phrases for complex tasks:
 
 ## Testing on Device
 ```bash
-# Install debug build
+# Build, install, grant ADB-only permissions and set DeepFocus as the
+# home screen in one go (phone plugged in, USB debugging on).
+# The home screen can ONLY be set this way: the settings guardian closes
+# the phone's own "default home app" screen because it names DeepFocus.
+./install.sh
+
+# Or by hand: install debug build
 ./gradlew installDebug
 
 # Grant special permissions via ADB
 adb shell pm grant com.deepfocus.app android.permission.WRITE_SECURE_SETTINGS
+
+# Make DeepFocus the home screen
+adb shell cmd package set-home-activity com.deepfocus.app/.presentation.ui.screens.launcher.LauncherActivity
 
 # View logs
 adb logcat -s DeepFocus

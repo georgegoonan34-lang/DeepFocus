@@ -1,27 +1,29 @@
 package com.deepfocus.app.presentation.ui.screens.launcher
 
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.text.format.DateFormat
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,118 +34,148 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
+import com.deepfocus.app.presentation.ui.theme.DeepFocusType
+import com.deepfocus.app.presentation.ui.theme.Ink
 import com.deepfocus.app.presentation.viewmodel.LauncherApp
 import com.deepfocus.app.presentation.viewmodel.LauncherViewModel
+import com.deepfocus.app.util.ScreenTime
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Home: clock, the pinned "important apps" grid, and the door to everything else. */
+/** Side margin shared by every launcher page, so the text lines up as you swipe. */
+internal val PAGE_MARGIN = 28.dp
+
+/** Space above the first line of every page. Clears the camera cut-out. */
+internal val PAGE_TOP = 56.dp
+
+/** What the top of the home page shows; re-read once a minute. */
+private data class Moment(val time: String, val date: String, val batteryPercent: Int?)
+
+/** Home: clock, the pinned "important apps" list, and the doors to everything else. */
 @Composable
 fun HomePage(
     viewModel: LauncherViewModel,
+    onOpenHabits: () -> Unit,
     onOpenAllApps: () -> Unit,
 ) {
+    val context = LocalContext.current
     val apps by viewModel.homeApps.collectAsState()
-    var currentTime by remember { mutableStateOf(currentTimeString()) }
-    var currentDate by remember { mutableStateOf(currentDateString()) }
+    val screenTime by viewModel.screenTimeMinutes.collectAsState()
+    var moment by remember { mutableStateOf(readMoment(context)) }
 
-    // Update time every second
+    // The clock shows minutes, so wake on each minute boundary rather than
+    // every second.
     LaunchedEffect(Unit) {
         while (true) {
-            currentTime = currentTimeString()
-            currentDate = currentDateString()
-            delay(1000)
+            moment = readMoment(context)
+            delay(60_000 - System.currentTimeMillis() % 60_000)
         }
     }
 
+    HomeContent(
+        time = moment.time,
+        date = moment.date,
+        batteryPercent = moment.batteryPercent,
+        screenTimeMinutes = screenTime,
+        apps = apps,
+        onLaunch = viewModel::launch,
+        onUnpin = viewModel::togglePin,
+        onOpenHabits = onOpenHabits,
+        onOpenAllApps = onOpenAllApps,
+    )
+}
+
+@Composable
+fun HomeContent(
+    time: String,
+    date: String,
+    batteryPercent: Int?,
+    screenTimeMinutes: Long?,
+    apps: List<LauncherApp>,
+    onLaunch: (LauncherApp) -> Unit,
+    onUnpin: (LauncherApp) -> Unit,
+    onOpenHabits: () -> Unit,
+    onOpenAllApps: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(horizontal = 24.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(horizontal = PAGE_MARGIN)
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(PAGE_TOP))
 
+        // Large light digits carry a few dp of blank space on their left
+        // edge. Pull the clock back so it sits on the same line as the text.
         Text(
-            text = currentTime,
-            color = Color.White,
-            fontSize = 64.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            text = time,
+            color = Ink.Primary,
+            style = DeepFocusType.clock,
+            modifier = Modifier.offset(x = (-4).dp),
         )
 
-        Text(
-            text = currentDate,
-            color = Color.White.copy(alpha = 0.6f),
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        if (apps.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = date,
+                color = Ink.Muted,
+                style = DeepFocusType.body,
+                modifier = Modifier.weight(1f),
+            )
+            // The status bar is hidden here, so the page carries the battery.
+            if (batteryPercent != null) {
                 Text(
-                    text = "No apps pinned yet.\nLong-press an app in “Other apps” to pin it here.",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
+                    text = "$batteryPercent%",
+                    color = Ink.Faint,
+                    style = DeepFocusType.body,
                 )
             }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+        }
+
+        if (screenTimeMinutes != null) {
+            Text(
+                text = "${ScreenTime.format(screenTimeMinutes)} on this phone today",
+                color = Ink.Faint,
+                style = DeepFocusType.body,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(36.dp))
+
+        if (apps.isEmpty()) {
+            Text(
+                text = "Nothing here yet. Open All apps and hold an app to keep it on this page.",
+                color = Ink.Faint,
+                style = DeepFocusType.body,
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
+            )
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 items(apps, key = { it.packageName }) { app ->
-                    HomeAppIcon(
+                    HomeAppRow(
                         app = app,
-                        onClick = { viewModel.launch(app) },
-                        onLongClick = { viewModel.togglePin(app) },
+                        onClick = { onLaunch(app) },
+                        onLongClick = { onUnpin(app) },
                     )
                 }
             }
         }
 
-        // "Other apps" — the doorway to everything not important enough to pin.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onOpenAllApps)
-                .padding(vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Apps,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Other apps",
-                color = Color.White.copy(alpha = 0.6f),
-                fontSize = 14.sp,
-            )
+        // The two links sit on the side you'd swipe towards: Habits is the
+        // page to the left, All apps the page to the right.
+        Row(modifier = Modifier.fillMaxWidth()) {
+            PageLink(text = "Habits", onClick = onOpenHabits)
+            Spacer(modifier = Modifier.weight(1f))
+            PageLink(text = "All apps", onClick = onOpenAllApps)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -152,38 +184,118 @@ fun HomePage(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HomeAppIcon(
+private fun HomeAppRow(
     app: LauncherApp,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    // A pinned app can still be blocked (e.g. inside a schedule window):
-    // keep it visible but clearly inert.
-    val alpha = if (app.isBlocked) 0.25f else 1f
+    val haptics = LocalHapticFeedback.current
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    // A pinned app can still be blocked (e.g. outside a schedule window):
+    // keep it visible but clearly inert.
+    Box(
+        contentAlignment = Alignment.CenterStart,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(vertical = 6.dp)
-            .alpha(alpha),
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                },
+            ),
     ) {
-        AppIconImage(app = app, size = 52.dp)
-        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = app.name,
-            color = Color.White,
-            fontSize = 11.sp,
+            color = if (app.isBlocked) Ink.Faint else Ink.Primary,
+            style = DeepFocusType.entry,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
         )
     }
 }
 
-private fun currentTimeString(): String =
-    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+@Composable
+private fun PageLink(text: String, onClick: () -> Unit) {
+    Text(
+        text = text,
+        color = Ink.Muted,
+        style = DeepFocusType.body,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+    )
+}
 
-private fun currentDateString(): String =
-    SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())
+private fun readMoment(context: Context): Moment {
+    val locale = Locale.getDefault()
+    val now = Date()
+    // Follow the phone's 12/24-hour setting and the locale's day/month order.
+    val timePattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm"
+    val datePattern = DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM")
+    return Moment(
+        time = SimpleDateFormat(timePattern, locale).format(now),
+        date = SimpleDateFormat(datePattern, locale).format(now),
+        batteryPercent = readBatteryPercent(context),
+    )
+}
+
+private fun readBatteryPercent(context: Context): Int? {
+    // ACTION_BATTERY_CHANGED is sticky: registering with no receiver just
+    // hands back the latest reading.
+    val status = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        ?: return null
+    val level = status.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+    val scale = status.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+    return if (level >= 0 && scale > 0) level * 100 / scale else null
+}
+
+@Preview(widthDp = 360, heightDp = 780)
+@Composable
+private fun HomeContentPreview() {
+    val names = listOf("Phone", "Messages", "Maps", "Roblox", "Chrome", "Camera", "Netflix")
+    DeepFocusTheme {
+        Box(modifier = Modifier.background(Color.Black)) {
+            HomeContent(
+                time = "14:32",
+                date = "Thursday 12 November",
+                batteryPercent = 82,
+                screenTimeMinutes = 72,
+                apps = names.map { name ->
+                    LauncherApp(
+                        name = name,
+                        packageName = name,
+                        isBlocked = name == "Netflix",
+                        statusLabel = null,
+                        isPinned = true,
+                    )
+                },
+                onLaunch = {},
+                onUnpin = {},
+                onOpenHabits = {},
+                onOpenAllApps = {},
+            )
+        }
+    }
+}
+
+@Preview(widthDp = 360, heightDp = 780)
+@Composable
+private fun HomeContentEmptyPreview() {
+    DeepFocusTheme {
+        Box(modifier = Modifier.background(Color.Black)) {
+            HomeContent(
+                time = "9:05",
+                date = "Thursday 12 November",
+                batteryPercent = 100,
+                screenTimeMinutes = null,
+                apps = emptyList(),
+                onLaunch = {},
+                onUnpin = {},
+                onOpenHabits = {},
+                onOpenAllApps = {},
+            )
+        }
+    }
+}

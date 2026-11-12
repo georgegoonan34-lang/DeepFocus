@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,8 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,8 +45,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.deepfocus.app.data.model.Habit
+import com.deepfocus.app.presentation.ui.theme.DeepFocusType
+import com.deepfocus.app.presentation.ui.theme.Ink
 import com.deepfocus.app.presentation.viewmodel.HabitsViewModel
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -67,49 +69,61 @@ fun HabitsPage(viewModel: HabitsViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(horizontal = 20.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(horizontal = PAGE_MARGIN)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(PAGE_TOP))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "Habits",
-                color = Color.White,
-                fontSize = 28.sp,
+                color = Ink.Primary,
+                style = DeepFocusType.pageTitle,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { showAddDialog = true }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add habit",
-                    tint = Color.White,
-                )
-            }
+            Text(
+                text = "Add habit",
+                color = Ink.Muted,
+                style = DeepFocusType.body,
+                modifier = Modifier
+                    .clickable { showAddDialog = true }
+                    .padding(vertical = 12.dp),
+            )
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Week navigation. Forward is disabled on the current week — there
         // is nothing to pre-fill in the future.
+        // The icon buttons carry 12dp of built-in padding; the offsets put
+        // the arrows themselves on the page margin.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = viewModel::previousWeek) {
+            IconButton(
+                onClick = viewModel::previousWeek,
+                modifier = Modifier.offset(x = (-12).dp),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = "Previous week",
-                    tint = Color.White.copy(alpha = 0.7f),
+                    tint = Ink.Muted,
                 )
             }
             Text(
                 text = week.label,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp,
+                color = Ink.Muted,
+                style = DeepFocusType.body,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = viewModel::nextWeek, enabled = !week.isCurrentWeek) {
+            IconButton(
+                onClick = viewModel::nextWeek,
+                enabled = !week.isCurrentWeek,
+                modifier = Modifier.offset(x = 12.dp),
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Next week",
-                    tint = Color.White.copy(alpha = if (week.isCurrentWeek) 0.15f else 0.7f),
+                    tint = if (week.isCurrentWeek) Ink.Rule else Ink.Muted,
                 )
             }
         }
@@ -127,13 +141,13 @@ fun HabitsPage(viewModel: HabitsViewModel) {
                 ) {
                     Text(
                         text = day.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                        color = Color.White.copy(alpha = if (isToday) 1f else 0.4f),
-                        fontSize = 11.sp,
+                        color = if (isToday) Ink.Primary else Ink.Faint,
+                        style = DeepFocusType.note,
                     )
                     Text(
                         text = day.dayOfMonth.toString(),
-                        color = Color.White.copy(alpha = if (isToday) 1f else 0.4f),
-                        fontSize = 11.sp,
+                        color = if (isToday) Ink.Primary else Ink.Faint,
+                        style = DeepFocusType.note,
                     )
                 }
             }
@@ -142,19 +156,14 @@ fun HabitsPage(viewModel: HabitsViewModel) {
         Spacer(modifier = Modifier.height(12.dp))
 
         if (habits.isEmpty()) {
-            Box(
+            Text(
+                text = "No habits yet. Add one, then tick it off each day you do it.",
+                color = Ink.Faint,
+                style = DeepFocusType.body,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "No habits yet.\nTap + to add your first one.",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                )
-            }
+                    .padding(top = 12.dp),
+            )
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(habits, key = { it.id }) { habit ->
@@ -216,8 +225,8 @@ private fun HabitRow(
     ) {
         Text(
             text = habit.name,
-            color = Color.White,
-            fontSize = 14.sp,
+            color = Ink.Primary,
+            style = DeepFocusType.body,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -248,31 +257,24 @@ private fun HabitCell(
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         val cellModifier = Modifier
-            .size(28.dp)
+            .size(26.dp)
             .then(
                 if (checked) {
-                    Modifier.background(Color.White, CircleShape)
+                    Modifier.background(Ink.Primary, CircleShape)
                 } else {
-                    val borderAlpha = when {
-                        isFuture -> 0.1f
-                        isToday -> 0.6f
-                        else -> 0.3f
+                    val ring = when {
+                        isFuture -> Ink.Rule
+                        isToday -> Ink.Muted
+                        else -> Ink.Faint
                     }
-                    Modifier.border(1.dp, Color.White.copy(alpha = borderAlpha), CircleShape)
+                    Modifier.border(1.dp, ring, CircleShape)
                 }
             )
             .clickable(enabled = !isFuture, onClick = onTap)
 
-        Box(modifier = cellModifier, contentAlignment = Alignment.Center) {
-            if (checked) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = Color.Black,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
+        // A filled dot is "done", an empty ring is "not yet". Nothing drawn
+        // inside either.
+        Box(modifier = cellModifier)
     }
 }
 
@@ -288,7 +290,7 @@ private fun HabitNameDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111111),
+        containerColor = Color(0xFF161616),
         title = { Text(text = title, color = Color.White) },
         text = {
             OutlinedTextField(
@@ -328,7 +330,7 @@ private fun EditHabitDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111111),
+        containerColor = Color(0xFF161616),
         title = { Text(text = "Edit habit", color = Color.White) },
         text = {
             Column {
@@ -347,7 +349,7 @@ private fun EditHabitDialog(
                 Spacer(modifier = Modifier.height(12.dp))
                 // Deleting removes its history too (checks cascade).
                 TextButton(onClick = onDelete) {
-                    Text(text = "Delete habit", color = Color(0xFFCC4444))
+                    Text(text = "Delete habit and its history", color = Ink.Muted)
                 }
             }
         },

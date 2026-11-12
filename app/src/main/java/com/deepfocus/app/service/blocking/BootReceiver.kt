@@ -25,7 +25,6 @@ class BootReceiver : BroadcastReceiver() {
         ) {
             Log.d(TAG, "Boot completed, starting services")
             startBlockingService(context)
-            startScreenTimeService(context)
         }
     }
 
@@ -39,15 +38,6 @@ class BootReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start BlockingService", e)
-        }
-    }
-
-    private fun startScreenTimeService(context: Context) {
-        val serviceIntent = Intent(context, ScreenTimeService::class.java)
-        try {
-            context.startService(serviceIntent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start ScreenTimeService", e)
         }
     }
 }

@@ -123,3 +123,46 @@ val Typography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+/**
+ * The few text sizes the launcher actually uses. One typeface, light for
+ * the two big things (clock, page titles), regular for everything else.
+ */
+object DeepFocusType {
+    /** Tabular figures so the clock doesn't shuffle sideways as digits change. */
+    val clock = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Light,
+        fontSize = 76.sp,
+        lineHeight = 80.sp,
+        letterSpacing = (-2).sp,
+        fontFeatureSettings = "tnum",
+    )
+    val pageTitle = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Light,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp,
+    )
+
+    /** A line in a list you tap: app names, settings. */
+    val entry = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+    )
+    val body = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+    )
+    val note = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+    )
+}

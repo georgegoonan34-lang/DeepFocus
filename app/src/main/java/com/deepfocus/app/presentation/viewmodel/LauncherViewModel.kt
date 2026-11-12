@@ -2,12 +2,12 @@ package com.deepfocus.app.presentation.viewmodel
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.deepfocus.app.data.repository.PinnedAppsRepository
 import com.deepfocus.app.util.BlockedApps
 import com.deepfocus.app.util.ScheduledApps
+import com.deepfocus.app.util.ScreenTime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -19,11 +19,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** One launchable app as shown by the launcher UI. */
+/**
+ * One launchable app as shown by the launcher UI. Name only — the launcher
+ * is a plain text menu, so icons are never loaded.
+ */
 data class LauncherApp(
     val name: String,
     val packageName: String,
-    val icon: Drawable,
     val isBlocked: Boolean,
     val statusLabel: String?,
     val isPinned: Boolean,
@@ -37,8 +39,21 @@ class LauncherViewModel @Inject constructor(
 
     private val installedApps = MutableStateFlow<List<LauncherApp>>(emptyList())
 
+    private val _screenTimeMinutes = MutableStateFlow<Long?>(null)
+
+    /** Today's screen time for the home page; null until Usage Access is granted. */
+    val screenTimeMinutes: StateFlow<Long?> = _screenTimeMinutes
+
     init {
         refreshApps()
+        refreshScreenTime()
+    }
+
+    /** Re-read on every return to the home screen — that's when it has changed. */
+    fun refreshScreenTime() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _screenTimeMinutes.value = ScreenTime.todayMinutes(context)
+        }
     }
 
     /**
@@ -88,7 +103,11 @@ class LauncherViewModel @Inject constructor(
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
 
-        return pm.queryIntentActivities(mainIntent, 0).mapNotNull { resolveInfo ->
+        // An app can expose several launcher entries; the list is keyed by
+        // package, so keep one row per app.
+        return pm.queryIntentActivities(mainIntent, 0)
+            .distinctBy { it.activityInfo.packageName }
+            .mapNotNull { resolveInfo ->
             val packageName = resolveInfo.activityInfo.packageName
 
             // Skip our own app in the list
@@ -101,7 +120,6 @@ class LauncherViewModel @Inject constructor(
             LauncherApp(
                 name = resolveInfo.loadLabel(pm).toString(),
                 packageName = packageName,
-                icon = resolveInfo.loadIcon(pm),
                 isBlocked = alwaysBlocked || scheduledOut,
                 statusLabel = when {
                     alwaysBlocked -> "blocked"

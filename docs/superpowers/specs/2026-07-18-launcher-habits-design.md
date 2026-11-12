@@ -88,3 +88,24 @@ comment is updated since "the custom launcher was removed" is obsolete.
 Manual on-device verification (no test infrastructure exists in the repo):
 set as default launcher, pin/unpin, launch apps, blocked apps stay
 blocked, habit check-off persists across reinstall.
+
+## Update 2026-11-12 — plain text menu
+
+The icon grid read as cluttered and the icons were the one source of
+colour, so the launcher is now text only:
+
+- **Home**: clock, date, battery and today's screen time, then pinned apps
+  as a left-aligned list of names. "Habits" and "All apps" links sit at the
+  bottom on the side you swipe towards. The status bar (and its row of
+  notification icons) is hidden on the home screen; a swipe down brings it
+  back.
+- **All apps**: search field (the keyboard's Go key opens the top match),
+  alphabetical names with index letters in the margin, blocked apps under
+  a "Blocked" divider. Every visit starts at the top with no search.
+- **Screen time**: the 30-minute reminder notifications and their service
+  are gone; the figure is read on demand for the home page instead.
+- **Setup / block screens**: same margins and type; brightness replaces the
+  green tick (what still needs doing is bright, what's on fades back).
+- **Becoming the home screen**: done by `install.sh` over ADB. It cannot be
+  done on the phone, because the settings guardian closes any settings
+  screen that names DeepFocus, including the default-home picker.

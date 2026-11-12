@@ -6,16 +6,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
+import com.deepfocus.app.presentation.ui.theme.DeepFocusType
+import com.deepfocus.app.presentation.ui.theme.Ink
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -82,8 +82,8 @@ fun BlockedScreen(
     onDismiss: () -> Unit,
 ) {
     val dismissLabel = when (blockedType) {
-        BlockedActivity.TYPE_URL, BlockedActivity.TYPE_SHORTS -> "Go Back"
-        else -> "Go Home"
+        BlockedActivity.TYPE_URL, BlockedActivity.TYPE_SHORTS -> "Go back"
+        else -> "Go to home screen"
     }
 
     val message = when {
@@ -107,41 +107,47 @@ fun BlockedScreen(
         else -> "You blocked this for a reason.\nStay focused."
     }
 
+    // Same left-hand margin and type as the launcher pages, so being
+    // blocked reads as one more quiet page rather than an alarm.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
             .systemBarsPadding()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 28.dp),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = message,
-            color = Color.White,
-            fontSize = 32.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 40.sp
+            color = Ink.Primary,
+            style = DeepFocusType.pageTitle,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = submessage,
-            color = Color.White.copy(alpha = 0.5f),
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            lineHeight = 24.sp
+            color = Ink.Muted,
+            style = DeepFocusType.body,
         )
 
-        Spacer(modifier = Modifier.height(64.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
-        TextButton(onClick = onDismiss) {
-            Text(
-                text = dismissLabel,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp
-            )
-        }
+        Text(
+            text = dismissLabel,
+            color = Ink.Primary,
+            style = DeepFocusType.body,
+            modifier = Modifier
+                .clickable(onClick = onDismiss)
+                .padding(vertical = 16.dp),
+        )
+    }
+}
+
+@Preview(widthDp = 360, heightDp = 780)
+@Composable
+private fun BlockedScreenPreview() {
+    DeepFocusTheme {
+        BlockedScreen(blockedType = BlockedActivity.TYPE_APP, onDismiss = {})
     }
 }

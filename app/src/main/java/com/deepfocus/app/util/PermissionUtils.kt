@@ -5,6 +5,8 @@ import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
@@ -53,4 +55,12 @@ fun isFullySetUp(context: Context): Boolean {
             isDeviceAdminEnabled(context) &&
             Settings.canDrawOverlays(context) &&
             hasUsageStatsPermission(context)
+}
+
+/** True when pressing the Home button lands on DeepFocus. */
+fun isDefaultHome(context: Context): Boolean {
+    val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+    val resolved = context.packageManager
+        .resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+    return resolved?.activityInfo?.packageName == context.packageName
 }
