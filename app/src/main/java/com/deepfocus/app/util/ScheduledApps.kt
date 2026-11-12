@@ -40,8 +40,9 @@ object ScheduledApps {
     val SCHEDULED_PACKAGES: Map<String, List<TimeWindow>> = emptyMap()
 
     /**
-     * URL host substrings → list of windows. Match is by `contains`, so
-     * "youtube.com" matches m.youtube.com, www.youtube.com, etc.
+     * Domain → list of windows. Matched on the host the same way as
+     * BlockedApps, so "youtube.com" matches m.youtube.com, www.youtube.com,
+     * etc. but never an unrelated address that merely contains the text.
      */
     val SCHEDULED_URL_PATTERNS: Map<String, List<TimeWindow>> = emptyMap()
 
@@ -58,9 +59,9 @@ object ScheduledApps {
     }
 
     private fun matchUrl(url: String): List<TimeWindow>? {
-        val lower = url.lowercase()
-        for ((pattern, windows) in SCHEDULED_URL_PATTERNS) {
-            if (lower.contains(pattern)) return windows
+        val host = BlockedApps.hostOf(url) ?: return null
+        for ((domain, windows) in SCHEDULED_URL_PATTERNS) {
+            if (BlockedApps.hostMatches(host, domain)) return windows
         }
         return null
     }

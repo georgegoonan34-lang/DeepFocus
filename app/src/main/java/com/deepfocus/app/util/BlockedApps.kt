@@ -5,8 +5,8 @@ package com.deepfocus.app.util
  *
  * To modify this list, you must:
  * 1. Edit this file on your computer
- * 2. Rebuild the app: ./gradlew installDebug
- * 3. Reinstall via ADB
+ * 2. Plug the phone in
+ * 3. Rebuild and reinstall: ./install.sh
  *
  * This is intentional - no way to change from the phone.
  */
@@ -18,6 +18,8 @@ object BlockedApps {
      */
     val BLOCKED_PACKAGES = setOf(
         // Social Media - The endless scroll machines
+        "com.instagram.android",                    // Instagram
+        "com.instagram.lite",                       // Instagram Lite
         "com.zhiliaoapp.musically",                // TikTok
         "com.ss.android.ugc.trill",                // TikTok (alternate)
         "com.twitter.android",                      // Twitter/X
@@ -30,6 +32,10 @@ object BlockedApps {
         "com.rubenmayayo.reddit",                  // Boost for Reddit
         "com.onelouder.baconreader",               // BaconReader
         "com.linkedin.android",                     // LinkedIn
+        "com.snapchat.android",                     // Snapchat
+
+        // Streaming
+        "com.netflix.mediaclient",                  // Netflix
 
         // YouTube - fully blocked, app and web (see the youtube.com URL
         // patterns below). Blocking the app matters because Shorts can't be
@@ -53,18 +59,25 @@ object BlockedApps {
     )
 
     /**
-     * URL patterns to block in browsers.
-     * If the browser URL contains any of these, show block screen.
+     * Sites to block in browsers, as domains.
+     * A page is blocked when its host IS one of these or is a subdomain
+     * of one, so "youtube.com" also covers www./m. variants and every
+     * /shorts URL under them.
+     *
+     * Matching is on the host, never on the raw text: a plain `contains`
+     * made "x.com" swallow roblox.com, netflix.com, dropbox.com and every
+     * other address that happens to end in those letters.
      */
     val BLOCKED_URL_PATTERNS = setOf(
-        // Matching is by `contains`, so "youtube.com" also covers
-        // www./m. variants and every /shorts URL under them.
         "youtube.com",
         "youtu.be",
+        "instagram.com",
         "tiktok.com",
         "twitter.com",
         "x.com",
         "reddit.com",
+        "netflix.com",
+        "snapchat.com",
     )
 
     /**
@@ -112,10 +125,43 @@ object BlockedApps {
     }
 
     fun isUrlBlocked(url: String): Boolean {
-        val lowerUrl = url.lowercase()
-        return BLOCKED_URL_PATTERNS.any { pattern ->
-            lowerUrl.contains(pattern.lowercase())
-        }
+        val host = hostOf(url) ?: return false
+        return BLOCKED_URL_PATTERNS.any { domain -> hostMatches(host, domain) }
+    }
+
+    /**
+     * Pulls the host out of whatever the browser's address bar shows.
+     * Bars show anything from "https://www.roblox.com/home" down to a bare
+     * "roblox.com", so scheme, login, port and path are all optional.
+     * Returns null for text that isn't an address (e.g. a search phrase).
+     */
+    fun hostOf(url: String): String? {
+        val text = url.trim().lowercase()
+        if (text.isEmpty() || text.any { it.isWhitespace() }) return null
+
+        // Only a leading "https://" is a scheme. A "://" further along
+        // belongs to a link inside the path or query and must not be
+        // mistaken for the start of the address.
+        val schemeEnd = text.indexOf("://")
+        val hasScheme = schemeEnd > 0 &&
+                text.substring(0, schemeEnd).all { it.isLetterOrDigit() || it in "+-." }
+        val afterScheme = if (hasScheme) text.substring(schemeEnd + 3) else text
+
+        val host = afterScheme
+            .substringBefore('/')
+            .substringBefore('?')
+            .substringBefore('#')
+            .substringAfterLast('@')
+            .substringBefore(':')
+            .trimEnd('.')
+
+        return host.takeIf { it.contains('.') }
+    }
+
+    /** True when [host] is [domain] itself or any subdomain of it. */
+    fun hostMatches(host: String, domain: String): Boolean {
+        val d = domain.lowercase()
+        return host == d || host.endsWith(".$d")
     }
 
     fun isBrowser(packageName: String): Boolean {
