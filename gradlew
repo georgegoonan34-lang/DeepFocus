@@ -94,7 +94,9 @@ fi
 
 # For Darwin, add options to specify how the application appears in the dock
 if $darwin; then
-    GRADLE_OPTS="-Xdock:name=$APP_BASE_NAME -Xdock:icon=$APP_HOME/media/gradle.icns $GRADLE_OPTS"
+    # Quoted so a project path containing spaces survives the xargs
+    # re-parse below as a single argument.
+    GRADLE_OPTS="\"-Xdock:name=$APP_BASE_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\" $GRADLE_OPTS"
 fi
 
 # For Cygwin or MSYS, switch paths to Windows format before running java
