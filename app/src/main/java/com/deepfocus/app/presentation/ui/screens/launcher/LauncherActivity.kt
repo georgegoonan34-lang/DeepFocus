@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -112,9 +115,15 @@ fun LauncherScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val homePressCount by homePresses.collectAsState()
+    val todayProgress by habitsViewModel.todayProgress.collectAsState()
+
+    // Sheets and the home page's edit mode raise this while they are open;
+    // the pages only swipe while nothing is holding them.
+    val pagerHold = remember { mutableIntStateOf(0) }
 
     // Back returns to the Home page; on Home it does nothing — this is the
-    // home screen, there is nowhere to go back to.
+    // home screen, there is nowhere to go back to. (An open sheet or edit
+    // mode registers its own handler below this one and gets Back first.)
     BackHandler {
         if (pagerState.currentPage != HOME_PAGE) {
             scope.launch { pagerState.animateScrollToPage(HOME_PAGE) }
@@ -130,28 +139,36 @@ fun LauncherScreen(
         focusManager.clearFocus()
     }
 
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-        beyondViewportPageCount = 2,
-    ) { page ->
-        when (page) {
-            HABITS_PAGE -> HabitsPage(habitsViewModel)
-            HOME_PAGE -> HomePage(
-                viewModel = launcherViewModel,
-                onOpenHabits = {
-                    scope.launch { pagerState.animateScrollToPage(HABITS_PAGE) }
-                },
-                onOpenAllApps = {
-                    scope.launch { pagerState.animateScrollToPage(ALL_APPS_PAGE) }
-                },
-            )
-            ALL_APPS_PAGE -> AllAppsPage(
-                viewModel = launcherViewModel,
-                isCurrentPage = pagerState.currentPage == ALL_APPS_PAGE,
-            )
+    CompositionLocalProvider(LocalPagerHold provides pagerHold) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            beyondViewportPageCount = 2,
+            userScrollEnabled = pagerHold.intValue == 0,
+        ) { page ->
+            when (page) {
+                HABITS_PAGE -> HabitsPage(
+                    viewModel = habitsViewModel,
+                    resetSignal = homePressCount,
+                )
+                HOME_PAGE -> HomePage(
+                    viewModel = launcherViewModel,
+                    todayProgress = todayProgress,
+                    resetSignal = homePressCount,
+                    onOpenHabits = {
+                        scope.launch { pagerState.animateScrollToPage(HABITS_PAGE) }
+                    },
+                    onOpenAllApps = {
+                        scope.launch { pagerState.animateScrollToPage(ALL_APPS_PAGE) }
+                    },
+                )
+                ALL_APPS_PAGE -> AllAppsPage(
+                    viewModel = launcherViewModel,
+                    isCurrentPage = pagerState.currentPage == ALL_APPS_PAGE,
+                )
+            }
         }
     }
 }

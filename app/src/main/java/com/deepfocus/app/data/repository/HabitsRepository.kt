@@ -18,6 +18,10 @@ class HabitsRepository @Inject constructor(
     fun checksForWeek(weekStart: LocalDate): Flow<List<HabitCheck>> =
         dao.checksBetween(weekStart.toEpochDay(), weekStart.plusDays(6).toEpochDay())
 
+    /** One day's ticks, for the "2 of 5 today" notes. */
+    fun checksForDay(day: LocalDate): Flow<List<HabitCheck>> =
+        dao.checksBetween(day.toEpochDay(), day.toEpochDay())
+
     suspend fun addHabit(name: String) {
         dao.insert(
             Habit(

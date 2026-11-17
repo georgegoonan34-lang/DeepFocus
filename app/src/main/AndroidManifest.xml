@@ -45,7 +45,11 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:stateNotNeeded="true"
-            android:theme="@style/Theme.DeepFocus">
+            android:theme="@style/Theme.DeepFocus"
+            android:windowSoftInputMode="adjustResize">
+            <!-- adjustResize: the keyboard reports its height to the page
+                 instead of shoving the whole window up, so the habit sheet
+                 can sit exactly on top of it. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />

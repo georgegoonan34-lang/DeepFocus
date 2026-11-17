@@ -29,6 +29,9 @@ data class HabitWeek(
     val today: LocalDate,
 )
 
+/** How far through today's habits you are. */
+data class TodayProgress(val done: Int, val total: Int)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HabitsViewModel @Inject constructor(
@@ -59,6 +62,19 @@ class HabitsViewModel @Inject constructor(
             .map { list -> list.map { it.habitId to it.epochDay }.toSet() }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    /**
+     * Today's count, whichever week the grid is showing. Ticks are counted
+     * against the habits that still exist, so the two numbers always agree.
+     */
+    val todayProgress: StateFlow<TodayProgress> =
+        combine(
+            habitsRepository.habits,
+            today.flatMapLatest { day -> habitsRepository.checksForDay(day) },
+        ) { all, ticked ->
+            val ids = all.map { it.id }.toSet()
+            TodayProgress(done = ticked.count { it.habitId in ids }, total = all.size)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, TodayProgress(0, 0))
+
     fun previousWeek() {
         weekOffset.value -= 1
     }
@@ -74,12 +90,12 @@ class HabitsViewModel @Inject constructor(
     }
 
     fun addHabit(name: String) {
-        if (name.isBlank()) return
+        if (!isValidName(name)) return
         viewModelScope.launch { habitsRepository.addHabit(name) }
     }
 
     fun renameHabit(id: Long, name: String) {
-        if (name.isBlank()) return
+        if (!isValidName(name)) return
         viewModelScope.launch { habitsRepository.renameHabit(id, name) }
     }
 
@@ -102,7 +118,14 @@ class HabitsViewModel @Inject constructor(
         return HabitWeek(days, label, isCurrentWeek = offset == 0, today = td)
     }
 
-    private companion object {
-        val MONTH_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
+    companion object {
+        /** Longest habit name the grid's narrow name column can make sense of. */
+        const val MAX_NAME_LENGTH = 40
+
+        /** The one rule for a habit name, shared by the sheet and the view model. */
+        fun isValidName(name: String): Boolean =
+            name.isNotBlank() && name.trim().length <= MAX_NAME_LENGTH
+
+        private val MONTH_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
     }
 }

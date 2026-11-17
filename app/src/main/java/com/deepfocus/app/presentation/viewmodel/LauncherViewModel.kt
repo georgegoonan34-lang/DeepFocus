@@ -88,6 +88,26 @@ class LauncherViewModel @Inject constructor(
         }
     }
 
+    /** Take an app off the home page. Does nothing if it isn't there. */
+    fun unpin(app: LauncherApp) {
+        viewModelScope.launch { pinnedAppsRepository.unpin(app.packageName) }
+    }
+
+    /**
+     * Move a home-page app one place [up] or down. Works on the list as the
+     * page shows it, so the app swaps with the neighbour you can see.
+     */
+    fun move(app: LauncherApp, up: Boolean) {
+        val order = homeApps.value.map { it.packageName }.toMutableList()
+        val from = order.indexOf(app.packageName)
+        val to = if (up) from - 1 else from + 1
+        if (from < 0 || to !in order.indices) return
+
+        order[from] = order[to]
+        order[to] = app.packageName
+        viewModelScope.launch { pinnedAppsRepository.setOrder(order) }
+    }
+
     fun launch(app: LauncherApp) {
         // The launcher never opens blocked apps; the accessibility service
         // stays as the backstop for launches from anywhere else.

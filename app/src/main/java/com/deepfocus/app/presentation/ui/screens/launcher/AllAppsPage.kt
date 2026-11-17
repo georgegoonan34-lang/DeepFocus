@@ -1,10 +1,6 @@
 package com.deepfocus.app.presentation.ui.screens.launcher
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,8 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -38,10 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -183,7 +174,8 @@ fun AllAppsContent(
             // middle of a search it's just noise.
             val footer = when {
                 shown.isEmpty() -> "No app called “${query.trim()}”."
-                !searching -> "Hold an app to keep it on the home page, or to take it off."
+                !searching -> "Hold an app to keep it on the home page, or to take it off. " +
+                        "Edit list on the home page does the same, and reorders."
                 else -> null
             }
             if (footer != null) {
@@ -210,49 +202,22 @@ private fun SearchField(
     onQueryChange: (String) -> Unit,
     onGo: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val focused by interactionSource.collectIsFocusedAsState()
-
-    BasicTextField(
+    // The underline is the field. It brightens while you type in it.
+    // (Drawn by LineField, which the habit sheet and the app picker share.)
+    LineField(
         value = query,
         onValueChange = onQueryChange,
-        singleLine = true,
-        textStyle = DeepFocusType.entry.copy(color = Ink.Primary),
-        cursorBrush = SolidColor(Ink.Primary),
-        interactionSource = interactionSource,
+        placeholder = "Search",
+        startPadding = LETTER_GUTTER,
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.None,
             autoCorrectEnabled = false,
             imeAction = ImeAction.Go,
         ),
-        keyboardActions = KeyboardActions(onGo = { onGo() }),
-        modifier = Modifier.fillMaxWidth(),
-        decorationBox = { innerTextField ->
-            Column {
-                Box(
-                    contentAlignment = Alignment.CenterStart,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp)
-                        .padding(start = LETTER_GUTTER),
-                ) {
-                    if (query.isEmpty()) {
-                        Text(
-                            text = "Search",
-                            color = Ink.Faint,
-                            style = DeepFocusType.entry,
-                        )
-                    }
-                    innerTextField()
-                }
-                // The underline is the field. It brightens while you type in it.
-                HorizontalDivider(color = if (focused) Ink.Muted else Ink.Rule)
-            }
-        },
+        onImeAction = onGo,
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AllAppsRow(
     app: LauncherApp,
@@ -260,22 +225,15 @@ private fun AllAppsRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val haptics = LocalHapticFeedback.current
-
     // Long-press still works on blocked apps (pinning is allowed); tapping
     // them does nothing because launch() refuses blocked apps.
+    // quietClick gives the long-press its buzz, as the old handler here did.
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick()
-                },
-            ),
+            .quietClick(onLongClick = onLongClick, onClick = onClick),
     ) {
         Text(
             text = gutterLetter.orEmpty(),

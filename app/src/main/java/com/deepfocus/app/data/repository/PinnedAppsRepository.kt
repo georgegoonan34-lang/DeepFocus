@@ -20,4 +20,23 @@ class PinnedAppsRepository @Inject constructor(
     }
 
     suspend fun unpin(packageName: String) = dao.delete(packageName)
+
+    /**
+     * Put the pins the home page is showing into [visibleOrder].
+     *
+     * A pin can outlive its app for a while (uninstalled, or hidden from the
+     * launcher). Those rows are not in [visibleOrder]; they keep the slot
+     * they had, and the visible ones are dealt back into the slots between.
+     */
+    suspend fun setOrder(visibleOrder: List<String>) {
+        val pins = dao.pinnedAppsOnce()
+        val byPackage = pins.associateBy { it.packageName }
+        val reordered = visibleOrder.mapNotNull { byPackage[it] }.iterator()
+        val visible = visibleOrder.toSet()
+
+        val arranged = pins.map { pin ->
+            if (pin.packageName in visible && reordered.hasNext()) reordered.next() else pin
+        }
+        dao.updateAll(arranged.mapIndexed { index, pin -> pin.copy(position = index) })
+    }
 }

@@ -1,10 +1,13 @@
 package com.deepfocus.app.presentation.ui.screens.launcher
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,28 +15,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,14 +41,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.deepfocus.app.data.model.Habit
+import com.deepfocus.app.presentation.ui.theme.DeepFocusTheme
 import com.deepfocus.app.presentation.ui.theme.DeepFocusType
 import com.deepfocus.app.presentation.ui.theme.Ink
+import com.deepfocus.app.presentation.viewmodel.HabitWeek
 import com.deepfocus.app.presentation.viewmodel.HabitsViewModel
+import com.deepfocus.app.presentation.viewmodel.TodayProgress
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -56,16 +66,76 @@ import java.util.Locale
 /** Width of the habit-name gutter; the 7 day columns share the rest. */
 private val NAME_COLUMN_WIDTH = 96.dp
 
-/** Habit grid: days across the top, habits down the side, tap to check off. */
+/**
+ * Habit grid: days across the top, habits down the side, tap to check off.
+ *
+ * [resetSignal] changes whenever the Home button is pressed; any open sheet
+ * is dropped so the launcher always comes back clean.
+ */
 @Composable
-fun HabitsPage(viewModel: HabitsViewModel) {
+fun HabitsPage(viewModel: HabitsViewModel, resetSignal: Int) {
     val week by viewModel.week.collectAsState()
     val habits by viewModel.habits.collectAsState()
     val checks by viewModel.checks.collectAsState()
+    val today by viewModel.todayProgress.collectAsState()
 
-    var showAddDialog by remember { mutableStateOf(false) }
+    var adding by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<Habit?>(null) }
 
+    LaunchedEffect(resetSignal) {
+        adding = false
+        editTarget = null
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        HabitsContent(
+            week = week,
+            habits = habits,
+            checks = checks,
+            today = today,
+            onAdd = { adding = true },
+            onEdit = { editTarget = it },
+            onToggle = viewModel::toggle,
+            onPreviousWeek = viewModel::previousWeek,
+            onNextWeek = viewModel::nextWeek,
+        )
+
+        if (adding) {
+            HabitSheet(
+                heading = "New habit",
+                initialName = "",
+                confirmLabel = "Add",
+                onConfirm = viewModel::addHabit,
+                onDelete = null,
+                onDismiss = { adding = false },
+            )
+        }
+
+        editTarget?.let { habit ->
+            HabitSheet(
+                heading = "Habit",
+                initialName = habit.name,
+                confirmLabel = "Save",
+                onConfirm = { name -> viewModel.renameHabit(habit.id, name) },
+                onDelete = { viewModel.deleteHabit(habit.id) },
+                onDismiss = { editTarget = null },
+            )
+        }
+    }
+}
+
+@Composable
+fun HabitsContent(
+    week: HabitWeek,
+    habits: List<Habit>,
+    checks: Set<Pair<Long, Long>>,
+    today: TodayProgress,
+    onAdd: () -> Unit,
+    onEdit: (Habit) -> Unit,
+    onToggle: (Long, LocalDate) -> Unit,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -81,13 +151,16 @@ fun HabitsPage(viewModel: HabitsViewModel) {
                 style = DeepFocusType.pageTitle,
                 modifier = Modifier.weight(1f),
             )
+            TextLink(text = "Add habit", onClick = onAdd)
+        }
+
+        // Always about today, whichever week the grid below is showing.
+        if (today.total > 0) {
             Text(
-                text = "Add habit",
-                color = Ink.Muted,
+                text = if (today.done >= today.total) "All done today"
+                else "${today.done} of ${today.total} done today",
+                color = Ink.Faint,
                 style = DeepFocusType.body,
-                modifier = Modifier
-                    .clickable { showAddDialog = true }
-                    .padding(vertical = 12.dp),
             )
         }
 
@@ -99,7 +172,7 @@ fun HabitsPage(viewModel: HabitsViewModel) {
         // the arrows themselves on the page margin.
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
-                onClick = viewModel::previousWeek,
+                onClick = onPreviousWeek,
                 modifier = Modifier.offset(x = (-12).dp),
             ) {
                 Icon(
@@ -108,15 +181,23 @@ fun HabitsPage(viewModel: HabitsViewModel) {
                     tint = Ink.Muted,
                 )
             }
-            Text(
-                text = week.label,
-                color = Ink.Muted,
-                style = DeepFocusType.body,
-                textAlign = TextAlign.Center,
+            // The dates fade from one week to the next rather than jumping.
+            AnimatedContent(
+                targetState = week.label,
+                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
+                label = "week",
                 modifier = Modifier.weight(1f),
-            )
+            ) { label ->
+                Text(
+                    text = label,
+                    color = Ink.Muted,
+                    style = DeepFocusType.body,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             IconButton(
-                onClick = viewModel::nextWeek,
+                onClick = onNextWeek,
                 enabled = !week.isCurrentWeek,
                 modifier = Modifier.offset(x = 12.dp),
             ) {
@@ -171,58 +252,42 @@ fun HabitsPage(viewModel: HabitsViewModel) {
                         habit = habit,
                         week = week,
                         checks = checks,
-                        onToggle = viewModel::toggle,
-                        onLongPressName = { editTarget = habit },
+                        onToggle = onToggle,
+                        onEditName = { onEdit(habit) },
+                        // A deleted habit fades out and the rows below close the gap.
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+                item(key = "how-to") {
+                    Text(
+                        text = "Tap a habit's name to rename or delete it.",
+                        color = Ink.Faint,
+                        style = DeepFocusType.note,
+                        modifier = Modifier
+                            .animateItem()
+                            .padding(top = 20.dp, bottom = 32.dp),
                     )
                 }
             }
         }
     }
-
-    if (showAddDialog) {
-        HabitNameDialog(
-            title = "New habit",
-            initialName = "",
-            confirmLabel = "Add",
-            onConfirm = { name ->
-                viewModel.addHabit(name)
-                showAddDialog = false
-            },
-            onDismiss = { showAddDialog = false },
-        )
-    }
-
-    editTarget?.let { habit ->
-        EditHabitDialog(
-            habit = habit,
-            onRename = { name ->
-                viewModel.renameHabit(habit.id, name)
-                editTarget = null
-            },
-            onDelete = {
-                viewModel.deleteHabit(habit.id)
-                editTarget = null
-            },
-            onDismiss = { editTarget = null },
-        )
-    }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HabitRow(
     habit: Habit,
-    week: com.deepfocus.app.presentation.viewmodel.HabitWeek,
+    week: HabitWeek,
     checks: Set<Pair<Long, Long>>,
     onToggle: (Long, LocalDate) -> Unit,
-    onLongPressName: () -> Unit,
+    onEditName: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
+        // A tap opens the habit's sheet. Holding still works too, for hands
+        // that learned it back when that was the only way in.
         Text(
             text = habit.name,
             color = Ink.Primary,
@@ -231,8 +296,8 @@ private fun HabitRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .width(NAME_COLUMN_WIDTH)
-                .combinedClickable(onClick = {}, onLongClick = onLongPressName)
-                .padding(end = 8.dp, top = 4.dp, bottom = 4.dp),
+                .quietClick(onLongClick = onEditName, onClick = onEditName)
+                .padding(end = 8.dp, top = 10.dp, bottom = 10.dp),
         )
         week.days.forEach { day ->
             val checked = (habit.id to day.toEpochDay()) in checks
@@ -255,113 +320,193 @@ private fun HabitCell(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        val cellModifier = Modifier
-            .size(26.dp)
-            .then(
-                if (checked) {
-                    Modifier.background(Ink.Primary, CircleShape)
-                } else {
-                    val ring = when {
-                        isFuture -> Ink.Rule
-                        isToday -> Ink.Muted
-                        else -> Ink.Faint
-                    }
-                    Modifier.border(1.dp, ring, CircleShape)
-                }
-            )
-            .clickable(enabled = !isFuture, onClick = onTap)
+    val view = LocalView.current
+    val arm = remember { TapArm() }
+    val interactionSource = remember { MutableInteractionSource() }
 
+    // The whole cell is the target, not just the 26dp dot in the middle of it.
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .heightIn(min = 42.dp)
+            .toggleable(
+                value = checked,
+                interactionSource = interactionSource,
+                // No ripple: the dot popping is the feedback.
+                indication = null,
+                enabled = !isFuture,
+                role = Role.Checkbox,
+                onValueChange = { nowChecked ->
+                    arm.armed = true
+                    // One small click in the hand for a tick; none for taking it back.
+                    if (nowChecked) view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                    onTap()
+                },
+            ),
+    ) {
         // A filled dot is "done", an empty ring is "not yet". Nothing drawn
         // inside either.
-        Box(modifier = cellModifier)
+        CheckDot(
+            checked = checked,
+            ring = when {
+                isFuture -> Ink.Rule
+                isToday -> Ink.Muted
+                else -> Ink.Faint
+            },
+            arm = arm,
+        )
     }
 }
 
+/**
+ * The one sheet for naming a habit. With [onDelete] it is the edit sheet:
+ * rename, or delete after a second, explicit yes.
+ */
 @Composable
-private fun HabitNameDialog(
-    title: String,
+private fun HabitSheet(
+    heading: String,
     initialName: String,
     confirmLabel: String,
     onConfirm: (String) -> Unit,
+    onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
-    var name by remember { mutableStateOf(initialName) }
+    QuietSheet(onDismiss = onDismiss) { close ->
+        var name by remember { mutableStateOf(initialName) }
+        var confirmingDelete by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
+        val valid = HabitsViewModel.isValidName(name)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF161616),
-        title = { Text(text = title, color = Color.White) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    cursorColor = Color.White,
-                ),
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
-                Text(text = confirmLabel, color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "Cancel", color = Color.White.copy(alpha = 0.6f))
-            }
-        },
-    )
-}
+        fun confirm() {
+            if (!valid) return
+            onConfirm(name)
+            close()
+        }
 
-@Composable
-private fun EditHabitDialog(
-    habit: Habit,
-    onRename: (String) -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by remember { mutableStateOf(habit.name) }
+        // A new habit has nothing to read first, so go straight to typing.
+        // An existing one opens calm: you may only be here to delete it.
+        if (onDelete == null) {
+            LaunchedEffect(Unit) { focusRequester.requestFocus() }
+        }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF161616),
-        title = { Text(text = "Edit habit", color = Color.White) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        cursorColor = Color.White,
-                    ),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                // Deleting removes its history too (checks cascade).
-                TextButton(onClick = onDelete) {
-                    Text(text = "Delete habit and its history", color = Ink.Muted)
+        AnimatedContent(
+            targetState = confirmingDelete,
+            transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) },
+            label = "habit-sheet",
+        ) { confirming ->
+            if (!confirming) {
+                Column {
+                    Text(text = heading, color = Ink.Muted, style = DeepFocusType.body)
+                    LineField(
+                        value = name,
+                        // Typing past the limit simply stops; nothing to explain.
+                        onValueChange = { typed ->
+                            if (typed.length <= HabitsViewModel.MAX_NAME_LENGTH) name = typed
+                        },
+                        placeholder = "Name",
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Done,
+                        ),
+                        onImeAction = ::confirm,
+                        modifier = Modifier.focusRequester(focusRequester),
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (onDelete != null) {
+                            TextLink(text = "Delete", onClick = { confirmingDelete = true })
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextLink(text = "Cancel", onClick = close)
+                        Spacer(modifier = Modifier.width(28.dp))
+                        TextLink(
+                            text = confirmLabel,
+                            color = Ink.Primary,
+                            enabled = valid,
+                            onClick = ::confirm,
+                        )
+                    }
+                }
+            } else {
+                Column {
+                    Text(
+                        text = "Delete “$initialName”?",
+                        color = Ink.Primary,
+                        style = DeepFocusType.entry,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Deleting removes its history too (checks cascade).
+                    Text(
+                        text = "Every day you ticked it goes too. This can't be undone.",
+                        color = Ink.Muted,
+                        style = DeepFocusType.body,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextLink(text = "Keep it", onClick = { confirmingDelete = false })
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextLink(
+                            text = "Delete habit",
+                            color = Ink.Primary,
+                            onClick = {
+                                onDelete?.invoke()
+                                close()
+                            },
+                        )
+                    }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onRename(name) }, enabled = name.isNotBlank()) {
-                Text(text = "Save", color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "Cancel", color = Color.White.copy(alpha = 0.6f))
-            }
-        },
-    )
+        }
+    }
+}
+
+@Preview(widthDp = 360, heightDp = 780)
+@Composable
+private fun HabitsContentPreview() {
+    val today = LocalDate.of(2026, 11, 12)
+    val monday = today.minusDays(3)
+    val habits = listOf("Stretch", "Read", "Walk", "No sugar").mapIndexed { index, name ->
+        Habit(id = index + 1L, name = name, position = index, createdAt = 0)
+    }
+    DeepFocusTheme {
+        Box(modifier = Modifier.background(Color.Black)) {
+            HabitsContent(
+                week = HabitWeek(
+                    days = (0L..6L).map { monday.plusDays(it) },
+                    label = "9–15 Nov",
+                    isCurrentWeek = true,
+                    today = today,
+                ),
+                habits = habits,
+                checks = setOf(
+                    1L to monday.toEpochDay(),
+                    1L to monday.plusDays(1).toEpochDay(),
+                    1L to today.toEpochDay(),
+                    2L to monday.plusDays(2).toEpochDay(),
+                    3L to today.toEpochDay(),
+                ),
+                today = TodayProgress(done = 2, total = 4),
+                onAdd = {},
+                onEdit = {},
+                onToggle = { _, _ -> },
+                onPreviousWeek = {},
+                onNextWeek = {},
+            )
+        }
+    }
+}
+
+@Preview(widthDp = 360, heightDp = 780)
+@Composable
+private fun HabitSheetPreview() {
+    DeepFocusTheme {
+        Box(modifier = Modifier.background(Color.Black)) {
+            HabitSheet(
+                heading = "Habit",
+                initialName = "Stretch",
+                confirmLabel = "Save",
+                onConfirm = {},
+                onDelete = {},
+                onDismiss = {},
+            )
+        }
+    }
 }
